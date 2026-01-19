@@ -70,7 +70,10 @@ class TallCmsInstall extends Command
         // Step 5: Publish assets (needed for frontend routes)
         $this->publishAssets();
 
-        // Step 6: Run tallcms:setup for roles and permissions
+        // Step 6: Publish Filament assets (required for admin panel CSS)
+        $this->publishFilamentAssets();
+
+        // Step 7: Run tallcms:setup for roles and permissions
         if (! $this->option('skip-setup')) {
             $this->runSetup();
         }
@@ -269,6 +272,19 @@ class TallCmsInstall extends Command
     }
 
     /**
+     * Publish Filament assets (required for admin panel CSS).
+     * This creates symlinks/copies for all Filament package assets including TallCMS admin CSS.
+     */
+    protected function publishFilamentAssets(): void
+    {
+        $this->components->task('Publishing Filament assets', function () {
+            $this->callSilently('filament:assets');
+
+            return true;
+        });
+    }
+
+    /**
      * Run database migrations.
      */
     protected function runMigrations(): void
@@ -321,6 +337,25 @@ class TallCmsInstall extends Command
             'Create your first page in <fg=cyan>CMS > Pages</>',
             'Configure menus in <fg=cyan>CMS > Menus</>',
         ]);
+        $this->newLine();
+
+        // Frontend routes info
+        $this->components->info('Enable frontend routes (optional):');
+        $this->newLine();
+        $this->line('    1. Add to your <fg=cyan>.env</> file:');
+        $this->line('       <fg=green>TALLCMS_ROUTES_ENABLED=true</>');
+        $this->newLine();
+        $this->line('    2. Update your <fg=cyan>routes/web.php</> for the homepage:');
+        $this->newLine();
+        $this->line('       <fg=yellow>use</> TallCms\Cms\Livewire\CmsPageRenderer;');
+        $this->newLine();
+        $this->line('       <fg=magenta>if</> (config(<fg=green>\'tallcms.plugin_mode.routes_enabled\'</>)) {');
+        $this->line('           Route::get(<fg=green>\'/\'</>, CmsPageRenderer::class)->defaults(<fg=green>\'slug\'</>, <fg=green>\'/\'</>);');
+        $this->line('       } <fg=magenta>else</> {');
+        $this->line('           Route::get(<fg=green>\'/\'</>, <fg=magenta>fn</> () => view(<fg=green>\'welcome\'</>));');
+        $this->line('       }');
+        $this->newLine();
+        $this->line('    <fg=gray>CMS handles /{slug} routes automatically. Mark a page as homepage in admin.</>');
         $this->newLine();
     }
 

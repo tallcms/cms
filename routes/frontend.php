@@ -4,14 +4,22 @@ declare(strict_types=1);
 
 /*
 |--------------------------------------------------------------------------
-| TallCMS Frontend Routes (Plugin Mode - Optional)
+| TallCMS Frontend Routes (Plugin Mode)
 |--------------------------------------------------------------------------
 |
-| These routes handle CMS page rendering on the frontend.
+| These routes handle CMS page rendering for /{slug} paths.
 | Only loaded when tallcms.plugin_mode.routes_enabled is true.
 |
-| Essential routes (preview, contact API) are loaded separately
-| and are always available for admin functionality.
+| NOTE: The homepage (/) is NOT registered here. To let the CMS handle /,
+| add this to your routes/web.php:
+|
+|     use TallCms\Cms\Livewire\CmsPageRenderer;
+|
+|     if (config('tallcms.plugin_mode.routes_enabled')) {
+|         Route::get('/', CmsPageRenderer::class)->defaults('slug', '/');
+|     } else {
+|         Route::get('/', fn () => view('welcome'));
+|     }
 |
 */
 
@@ -21,19 +29,13 @@ use TallCms\Cms\Livewire\CmsPageRenderer;
 // Route name prefix (defaults to 'tallcms.' in plugin mode)
 $namePrefix = config('tallcms.plugin_mode.route_name_prefix', 'tallcms.');
 
-Route::name($namePrefix)->group(function () {
-    // Catch-all CMS routes (disabled by default in plugin mode)
-    if (config('tallcms.plugin_mode.catch_all_enabled', false)) {
-        Route::middleware('tallcms.maintenance')->group(function () {
-            Route::get('/', CmsPageRenderer::class)
-                ->defaults('slug', '/')
-                ->name('cms.home');
+Route::name($namePrefix)->middleware('tallcms.maintenance')->group(function () {
+    // Page routes - exclude common app paths to avoid conflicts
+    // This regex excludes: admin paths, api paths, livewire, sanctum, etc.
+    $defaultExclusions = '^(?!admin|app|api|livewire|sanctum|_).*$';
+    $pattern = config('tallcms.plugin_mode.route_exclusions', $defaultExclusions);
 
-            $pattern = config('tallcms.plugin_mode.route_exclusions', '.*');
-
-            Route::get('/{slug}', CmsPageRenderer::class)
-                ->where('slug', $pattern)
-                ->name('cms.page');
-        });
-    }
+    Route::get('/{slug}', CmsPageRenderer::class)
+        ->where('slug', $pattern)
+        ->name('cms.page');
 });
