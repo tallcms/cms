@@ -238,6 +238,38 @@ class CmsPageRenderer extends Component
         return false;
     }
 
+    /**
+     * Check if the page content starts with a hero block.
+     * Used to apply smart contrast for breadcrumbs.
+     */
+    protected function pageStartsWithHero(CmsPage $page): bool
+    {
+        if (empty($page->content)) {
+            return false;
+        }
+
+        $content = $page->content;
+
+        if (is_string($content)) {
+            $decoded = json_decode($content, true);
+            if (! is_array($decoded)) {
+                return false;
+            }
+            $content = $decoded;
+        }
+
+        // Tiptap structure: { type: 'doc', content: [ ... ] }
+        if (isset($content['type']) && $content['type'] === 'doc' && isset($content['content'])) {
+            foreach ($content['content'] as $block) {
+                if (isset($block['type']) && $block['type'] === 'customBlock') {
+                    return isset($block['attrs']['id']) && $block['attrs']['id'] === 'hero';
+                }
+            }
+        }
+
+        return false;
+    }
+
     protected function showWelcomePage(): void
     {
         $this->page = new CmsPage([
@@ -259,6 +291,9 @@ class CmsPageRenderer extends Component
         $pageSlug = $this->page->slug === '/' ? '' : $this->page->slug;
         View::share('cmsPageSlug', $pageSlug);
 
+        // Share page content width with blocks so they can inherit it
+        View::share('cmsPageContentWidth', $this->page->content_width ?? 'standard');
+
         $renderedContent = RichContentRenderer::make($this->page->content)
             ->customBlocks(CustomBlockDiscoveryService::getBlocksArray())
             ->toUnsafeHtml();
@@ -275,14 +310,19 @@ class CmsPageRenderer extends Component
         $previousSlug = View::shared('cmsPageSlug');
         View::share('cmsPageSlug', $page->slug);
 
+        // Temporarily set content width for this page's blocks
+        $previousWidth = View::shared('cmsPageContentWidth');
+        View::share('cmsPageContentWidth', $page->content_width ?? 'standard');
+
         $rendered = RichContentRenderer::make($page->content)
             ->customBlocks(CustomBlockDiscoveryService::getBlocksArray())
             ->toUnsafeHtml();
 
         $result = MergeTagService::replaceTags($rendered, $page);
 
-        // Restore previous slug to avoid bleeding into subsequent views
+        // Restore previous context to avoid bleeding into subsequent views
         View::share('cmsPageSlug', $previousSlug);
+        View::share('cmsPageContentWidth', $previousWidth);
 
         return $result;
     }
@@ -327,6 +367,7 @@ class CmsPageRenderer extends Component
                 'slug' => $page->slug,
                 'anchor' => tallcms_slug_to_anchor($page->slug, $page->id),
                 'title' => $page->title,
+                'content_width' => $page->content_width ?? 'standard',
                 'content' => $this->renderSinglePageContent($page),
             ];
         })->toArray();
@@ -348,26 +389,30 @@ class CmsPageRenderer extends Component
             $seoPage = null;
             $seoIncludeWebsite = false;
 
-            // Build breadcrumbs for post
-            $prefix = config('tallcms.plugin_mode.routes_prefix', '');
-            $prefix = $prefix ? "/{$prefix}" : '';
+            // Build breadcrumbs for post (with absolute localized URLs for JSON-LD)
             $seoBreadcrumbs = [
-                ['name' => 'Home', 'url' => url($prefix ?: '/')],
+                ['name' => __('Home'), 'url' => url(tallcms_localized_url('/'))],
             ];
 
             // Add parent page breadcrumb if post is under a page
             if ($this->parentSlug) {
                 $seoBreadcrumbs[] = [
                     'name' => $this->page->title,
-                    'url' => url($prefix.'/'.$this->parentSlug),
+                    'url' => url(tallcms_localized_url($this->parentSlug)),
                 ];
             }
 
-            // Add post title as final breadcrumb
+            // Add post title as final breadcrumb (canonical URL)
+            $postUrl = $this->parentSlug
+                ? $this->parentSlug.'/'.$this->post->slug
+                : $this->post->slug;
             $seoBreadcrumbs[] = [
                 'name' => $this->post->title,
-                'url' => request()->url(),
+                'url' => url(tallcms_localized_url($postUrl)),
             ];
+
+            $showBreadcrumbs = true; // Posts always show breadcrumbs
+            $breadcrumbItems = $seoBreadcrumbs;
         } else {
             // Page SEO
             $metaTags = SeoService::getMetaTags($this->page);
@@ -382,19 +427,25 @@ class CmsPageRenderer extends Component
             $seoIncludeWebsite = $this->page->is_homepage;
 
             // Build breadcrumbs for page
-            $prefix = config('tallcms.plugin_mode.routes_prefix', '');
-            $prefix = $prefix ? "/{$prefix}" : '';
-
             if ($this->page->is_homepage) {
-                // Homepage doesn't need breadcrumbs
                 $seoBreadcrumbs = null;
+                $showBreadcrumbs = false;
+                $breadcrumbItems = [];
             } else {
-                $seoBreadcrumbs = [
-                    ['name' => 'Home', 'url' => url($prefix ?: '/')],
-                    ['name' => $this->page->title, 'url' => request()->url()],
-                ];
+                $showBreadcrumbs = $this->page->shouldShowBreadcrumbs();
+                if ($showBreadcrumbs) {
+                    $breadcrumbItems = $this->page->getBreadcrumbTrail();
+                    $seoBreadcrumbs = $breadcrumbItems; // Also used for JSON-LD
+                } else {
+                    // Toggle OFF suppresses both visual AND JSON-LD breadcrumbs
+                    $seoBreadcrumbs = null;
+                    $breadcrumbItems = [];
+                }
             }
         }
+
+        // Detect if breadcrumbs will appear over a hero block
+        $breadcrumbsOverHero = $showBreadcrumbs && $this->pageStartsWithHero($this->page);
 
         return view('tallcms::livewire.page')
             ->layout('tallcms::layouts.app', [
@@ -408,6 +459,9 @@ class CmsPageRenderer extends Component
                 'seoPage' => $seoPage,
                 'seoBreadcrumbs' => $seoBreadcrumbs,
                 'seoIncludeWebsite' => $seoIncludeWebsite,
+                'showBreadcrumbs' => $showBreadcrumbs,
+                'breadcrumbItems' => $breadcrumbItems,
+                'breadcrumbsOverHero' => $breadcrumbsOverHero,
             ]);
     }
 }

@@ -290,13 +290,10 @@ class HeroBlock extends RichContentCustomBlock
                                     ])
                                     ->columns(3),
 
-                                Section::make('Text Alignment')
-                                    ->schema([
-                                        Select::make('text_alignment')
-                                            ->label('Alignment')
-                                            ->options(static::getTextAlignmentOptions())
-                                            ->default('text-center'),
-                                    ]),
+                                Select::make('text_alignment')
+                                    ->label('Text Alignment')
+                                    ->options(static::getTextAlignmentOptions())
+                                    ->default('text-center'),
                             ]),
                     ]),
 

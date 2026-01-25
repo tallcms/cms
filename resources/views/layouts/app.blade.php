@@ -140,6 +140,11 @@
             </div>
         </nav>
 
+        {{-- Breadcrumbs --}}
+        @if($showBreadcrumbs ?? false)
+            <x-tallcms::breadcrumbs :items="$breadcrumbItems ?? []" :over-hero="$breadcrumbsOverHero ?? false" />
+        @endif
+
         <!-- Main Content -->
         <main>
             {{ $slot ?? '' }}
