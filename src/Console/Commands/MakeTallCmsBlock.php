@@ -45,9 +45,10 @@ class MakeTallCmsBlock extends Command
         $className = Str::studly($name).'Block';
         $kebabName = Str::kebab($name);
         $snakeName = Str::snake($name);
+        $titleName = Str::headline($name);
 
         // Create the block class
-        $this->createBlockClass($className, $kebabName, $snakeName);
+        $this->createBlockClass($className, $kebabName, $snakeName, $titleName);
 
         // Create the template
         $this->createBlockTemplate($kebabName, $className);
@@ -69,7 +70,7 @@ class MakeTallCmsBlock extends Command
     /**
      * Create the block class file.
      */
-    protected function createBlockClass(string $className, string $kebabName, string $snakeName): void
+    protected function createBlockClass(string $className, string $kebabName, string $snakeName, string $titleName): void
     {
         $classPath = app_path("Filament/Forms/Components/RichEditor/RichContentCustomBlocks/{$className}.php");
 
@@ -78,8 +79,8 @@ class MakeTallCmsBlock extends Command
 
         $stub = $this->getBlockClassStub();
         $content = str_replace(
-            ['{{CLASS_NAME}}', '{{KEBAB_NAME}}', '{{SNAKE_NAME}}', '{{BLOCK_ID}}'],
-            [$className, $kebabName, $snakeName, $snakeName],
+            ['{{CLASS_NAME}}', '{{KEBAB_NAME}}', '{{SNAKE_NAME}}', '{{BLOCK_ID}}', '{{TITLE_NAME}}'],
+            [$className, $kebabName, $snakeName, $snakeName, $titleName],
             $stub
         );
 
@@ -120,9 +121,12 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\RichEditor\RichContentCustomBlock;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use TallCms\Cms\Filament\Blocks\Concerns\HasBlockMetadata;
 
 class {{CLASS_NAME}} extends RichContentCustomBlock
 {
+    use HasBlockMetadata;
+
     public static function getId(): string
     {
         return '{{BLOCK_ID}}';
@@ -130,19 +134,53 @@ class {{CLASS_NAME}} extends RichContentCustomBlock
 
     public static function getLabel(): string
     {
-        return '{{CLASS_NAME}}';
+        return '{{TITLE_NAME}}';
+    }
+
+    /**
+     * Block category for the enhanced block panel.
+     * Options: content, media, social-proof, dynamic, forms, other
+     */
+    public static function getCategory(): string
+    {
+        return 'content';
+    }
+
+    /**
+     * Icon displayed in the block panel.
+     * Use any valid Heroicon name (e.g., heroicon-o-star, heroicon-o-photo)
+     */
+    public static function getIcon(): string
+    {
+        return 'heroicon-o-cube';
+    }
+
+    /**
+     * Brief description shown in search results.
+     */
+    public static function getDescription(): string
+    {
+        return 'A custom {{TITLE_NAME}} block';
+    }
+
+    /**
+     * Additional keywords for search.
+     */
+    public static function getKeywords(): array
+    {
+        return ['custom', '{{SNAKE_NAME}}'];
     }
 
     public static function configureEditorAction(Action $action): Action
     {
         return $action
-            ->modalDescription('Configure the {{SNAKE_NAME}} block')
+            ->modalDescription('Configure the {{TITLE_NAME}} block')
             ->schema([
                 TextInput::make('title')
                     ->required()
                     ->maxLength(255)
                     ->placeholder('Enter block title'),
-                    
+
                 Textarea::make('description')
                     ->maxLength(500)
                     ->placeholder('Enter block description'),
