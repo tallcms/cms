@@ -1,7 +1,6 @@
 # TallCMS
 
 A modern, feature-rich CMS package for Laravel Filament. Works as a standalone application or as a plugin in existing Filament apps.
-### This is the Filament package version of TallCMS stand alone https://github.com/tallcms/tallcms
 
 ## Features
 
