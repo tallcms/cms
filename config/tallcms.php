@@ -11,11 +11,13 @@ return [
     |
     */
     'version' => (function () {
-        $composerJson = dirname(__DIR__) . '/composer.json';
+        $composerJson = dirname(__DIR__).'/composer.json';
         if (file_exists($composerJson)) {
             $data = json_decode(file_get_contents($composerJson), true);
+
             return $data['version'] ?? 'unknown';
         }
+
         return 'unknown';
     })(),
 
@@ -231,17 +233,17 @@ return [
         'path' => env('TALLCMS_PLUGINS_PATH', base_path('plugins')),
 
         // Allow ZIP-based plugin uploads through admin UI
-        'allow_uploads' => env('TALLCMS_PLUGIN_ALLOW_UPLOADS', true),
+        'allow_uploads' => env('TALLCMS_PLUGIN_ALLOW_UPLOADS', env('PLUGIN_ALLOW_UPLOADS', true)),
 
         // Maximum upload size for plugin ZIP files (bytes). Default: 50MB
-        'max_upload_size' => env('TALLCMS_PLUGIN_MAX_UPLOAD_SIZE', 50 * 1024 * 1024),
+        'max_upload_size' => env('TALLCMS_PLUGIN_MAX_UPLOAD_SIZE', env('PLUGIN_MAX_UPLOAD_SIZE', 50 * 1024 * 1024)),
 
         // Plugin discovery caching
-        'cache_enabled' => env('TALLCMS_PLUGIN_CACHE_ENABLED', true),
+        'cache_enabled' => env('TALLCMS_PLUGIN_CACHE_ENABLED', env('PLUGIN_CACHE_ENABLED', true)),
         'cache_ttl' => 3600, // 1 hour
 
         // Automatically run plugin migrations on install
-        'auto_migrate' => env('TALLCMS_PLUGIN_AUTO_MIGRATE', true),
+        'auto_migrate' => env('TALLCMS_PLUGIN_AUTO_MIGRATE', env('PLUGIN_AUTO_MIGRATE', true)),
 
         // License management settings
         'license' => [
@@ -259,6 +261,18 @@ return [
 
             // How often to check for updates (seconds). Default: 24 hours
             'update_check_interval' => 86400,
+
+            // Purchase URLs for plugins (shown when no license is active)
+            'purchase_urls' => [
+                'tallcms/pro' => 'https://checkout.anystack.sh/tallcms-pro-plugin',
+                'tallcms/mega-menu' => 'https://checkout.anystack.sh/tallcms-mega-menu-plugin',
+            ],
+
+            // Download URLs for plugins (shown when license is valid)
+            'download_urls' => [
+                'tallcms/pro' => 'https://anystack.sh/download/tallcms-pro-plugin',
+                'tallcms/mega-menu' => 'https://anystack.sh/download/tallcms-mega-menu-plugin',
+            ],
         ],
 
         // Official plugin catalog (shown in Plugin Manager)
@@ -275,6 +289,19 @@ return [
                 'featured' => true,
                 'download_url' => 'https://anystack.sh/download/tallcms-pro-plugin',
                 'purchase_url' => 'https://checkout.anystack.sh/tallcms-pro-plugin',
+            ],
+            'tallcms/mega-menu' => [
+                'name' => 'TallCMS Mega Menu',
+                'slug' => 'mega-menu',
+                'vendor' => 'tallcms',
+                'description' => 'Create stunning mega menus for your website with ease. Build rich, multi-column dropdown menus with images, icons, and custom layouts.',
+                'author' => 'TallCMS',
+                'homepage' => 'https://tallcms.com/mega-menu',
+                'icon' => 'heroicon-o-bars-3-bottom-left',
+                'category' => 'official',
+                'featured' => true,
+                'download_url' => 'https://anystack.sh/download/tallcms-mega-menu-plugin',
+                'purchase_url' => 'https://checkout.anystack.sh/tallcms-mega-menu-plugin',
             ],
         ],
     ],
@@ -421,6 +448,27 @@ return [
 
         // Remember locale preference in session
         'remember_locale' => true,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Comments
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for the blog post commenting system. Comments require
+    | admin approval before appearing publicly.
+    |
+    */
+    'comments' => [
+        'enabled' => env('TALLCMS_COMMENTS_ENABLED', true),
+        'moderation' => env('TALLCMS_COMMENTS_MODERATION', 'manual'), // 'manual' = require approval, 'auto' = publish immediately
+        'max_depth' => 2,                   // top-level + 1 reply level (min 1)
+        'max_length' => 5000,               // max comment content length
+        'rate_limit' => 5,                  // max comments per IP per window
+        'rate_limit_decay' => 600,          // rate limit window in seconds
+        'notification_channels' => ['mail', 'database'],
+        'notify_on_approval' => true,       // email commenter when approved
+        'guest_comments' => true,           // allow non-authenticated comments
     ],
 
     /*

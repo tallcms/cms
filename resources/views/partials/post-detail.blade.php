@@ -118,6 +118,10 @@
             {!! $postContent !!}
         </div>
     </article>
+
+    @if(config('tallcms.comments.enabled', true) && ($config['show_comments'] ?? true) && $post->isPublished())
+        <x-tallcms::comments :post="$post" />
+    @endif
 </div>
 
 @php
