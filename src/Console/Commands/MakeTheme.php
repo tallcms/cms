@@ -285,6 +285,8 @@ class MakeTheme extends Command
             'author' => $themeInfo['author'],
         ];
 
+        $config['tags'] = [];
+
         // Custom daisyUI theme
         if ($themeInfo['mode'] === 'custom') {
             $themeName = $themeInfo['customColors']['name'] ?? $themeInfo['slug'];
@@ -295,6 +297,8 @@ class MakeTheme extends Command
             $config['supports'] = [
                 'dark_mode' => false,
                 'theme_controller' => false,
+                'responsive' => true,
+                'animations' => true,
             ];
         } else {
             // DaisyUI theme
@@ -315,6 +319,8 @@ class MakeTheme extends Command
             $config['supports'] = [
                 'dark_mode' => $themeInfo['prefersDark'] !== null,
                 'theme_controller' => $themeInfo['allPresets'],
+                'responsive' => true,
+                'animations' => true,
             ];
         }
 
@@ -603,8 +609,20 @@ GITIGNORE;
 
         return <<<BLADE
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" data-theme="{{ daisyui_default_preset() }}" data-default-theme="{{ daisyui_default_preset() }}">
 <head>
+    <script>
+        // Apply saved theme; reset localStorage when admin changes the default
+        (function() {
+            var d = document.documentElement.getAttribute('data-default-theme');
+            if (localStorage.getItem('theme-default') !== d) {
+                localStorage.removeItem('theme');
+                localStorage.setItem('theme-default', d);
+            }
+            var s = localStorage.getItem('theme');
+            if (s) document.documentElement.setAttribute('data-theme', s);
+        })();
+    </script>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
@@ -708,6 +726,7 @@ GITIGNORE;
         </nav>
         <aside>
             <p>&copy; {{ date('Y') }} {{ config('app.name') }}. All rights reserved.</p>
+            <x-tallcms::powered-by />
         </aside>
     </footer>
 

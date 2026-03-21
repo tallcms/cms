@@ -1,13 +1,161 @@
 <x-filament-panels::page>
+    {{-- Search & Sort Bar --}}
+    <div class="mb-4 space-y-3">
+        <div class="flex flex-col sm:flex-row gap-3">
+            <div class="flex-1">
+                <x-filament::input.wrapper>
+                    <x-filament::input
+                        wire:model.live.debounce.300ms="search"
+                        type="search"
+                        placeholder="Search themes by name, description, author, preset, or tag..."
+                    />
+                </x-filament::input.wrapper>
+            </div>
+            <div class="sm:shrink-0">
+                <x-filament::input.wrapper>
+                    <x-filament::input.select wire:model.live="sort">
+                        <option value="active">Active First</option>
+                        <option value="name">Name A&ndash;Z</option>
+                        <option value="preset">Group by Preset</option>
+                    </x-filament::input.select>
+                </x-filament::input.wrapper>
+            </div>
+        </div>
+
+        {{-- Filter Chips --}}
+        <div class="flex flex-wrap gap-2">
+            @php
+                $chips = [
+                    ['prop' => 'filterDarkMode', 'label' => 'Dark Mode', 'icon' => 'heroicon-o-moon', 'active' => $filterDarkMode],
+                    ['prop' => 'filterThemeController', 'label' => 'Theme Controller', 'icon' => 'heroicon-o-swatch', 'active' => $filterThemeController],
+                    ['prop' => 'filterResponsive', 'label' => 'Responsive', 'icon' => 'heroicon-o-device-phone-mobile', 'active' => $filterResponsive],
+                    ['prop' => 'filterAnimations', 'label' => 'Animations', 'icon' => 'heroicon-o-sparkles', 'active' => $filterAnimations],
+                ];
+            @endphp
+            @foreach($chips as $chip)
+                <button
+                    wire:click="$toggle('{{ $chip['prop'] }}')"
+                    type="button"
+                    @class([
+                        'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border shadow-sm transition-colors cursor-pointer select-none',
+                        'bg-primary-50 text-primary-700 border-primary-300 hover:bg-primary-100 dark:bg-primary-500/15 dark:text-primary-300 dark:border-primary-400/40 dark:hover:bg-primary-500/25' => $chip['active'],
+                        'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-200 dark:border-white/10 dark:hover:bg-gray-800' => !$chip['active'],
+                    ])
+                >
+                    @if($chip['active'])
+                        <x-heroicon-s-x-mark class="w-3.5 h-3.5" />
+                    @else
+                        <x-dynamic-component :component="$chip['icon']" class="w-3.5 h-3.5" />
+                    @endif
+                    {{ $chip['label'] }}
+                </button>
+            @endforeach
+        </div>
+    </div>
+
+    {{-- Active Theme Summary Panel --}}
+    @if($this->activeTheme)
+        @php $active = $this->activeTheme; @endphp
+        <x-filament::section compact class="mb-6">
+            <div class="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                {{-- Top row: color strip + theme info --}}
+                <div class="flex items-center gap-3 flex-1 min-w-0">
+                    {{-- Color strip mini --}}
+                    @if(!empty($active['daisyuiColors']))
+                        <div class="flex h-6 w-24 rounded overflow-hidden shrink-0">
+                            @foreach($active['daisyuiColors'] as $color)
+                                <div class="grow shrink basis-0" style="background: {{ $color }};"></div>
+                            @endforeach
+                        </div>
+                    @endif
+
+                    {{-- Theme info --}}
+                    <div class="flex items-center gap-2 min-w-0">
+                        <span class="font-semibold text-gray-950 dark:text-white truncate">{{ $active['name'] }}</span>
+                        <x-filament::badge color="success" size="sm">Active</x-filament::badge>
+                        <span class="text-xs text-gray-400 dark:text-gray-500">v{{ $active['version'] }}</span>
+                        @if($active['daisyuiPreset'])
+                            <x-filament::badge color="info" size="sm">{{ ucfirst($active['daisyuiPreset']) }}</x-filament::badge>
+                        @endif
+                    </div>
+
+                    {{-- Feature indicators --}}
+                    <div class="hidden lg:flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 shrink-0">
+                        @if($active['hasDarkMode'])
+                            <span class="inline-flex items-center gap-1">
+                                <x-heroicon-o-moon class="w-3.5 h-3.5" />
+                                Dark Mode
+                            </span>
+                        @endif
+                        @if($active['hasThemeController'])
+                            <span class="inline-flex items-center gap-1">
+                                <x-heroicon-o-swatch class="w-3.5 h-3.5" />
+                                Theme Controller
+                            </span>
+                        @endif
+                    </div>
+                </div>
+
+                {{-- Bottom row on mobile: controls --}}
+                <div class="flex flex-wrap items-center gap-2">
+                    {{-- Default Preset Selector --}}
+                    @if($active['hasThemeController'] && !empty($active['presets']))
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs text-gray-500 dark:text-gray-400">Default:</span>
+                            <x-filament::input.wrapper class="!w-auto">
+                                <x-filament::input.select
+                                    wire:change="changeDefaultPreset($event.target.value)"
+                                >
+                                    @foreach($active['presets'] as $preset)
+                                        <option value="{{ $preset }}" @selected($preset === $active['defaultPreset'])>
+                                            {{ ucfirst($preset) }}
+                                        </option>
+                                    @endforeach
+                                </x-filament::input.select>
+                            </x-filament::input.wrapper>
+                        </div>
+                    @endif
+
+                    {{-- Quick links --}}
+                    <x-filament::button
+                        tag="a"
+                        href="{{ url('/') }}"
+                        target="_blank"
+                        color="gray"
+                        size="xs"
+                        icon="heroicon-o-arrow-top-right-on-square"
+                    >
+                        Visit Site
+                    </x-filament::button>
+                    <x-filament::button
+                        wire:click="previewTheme('{{ $active['slug'] }}')"
+                        color="gray"
+                        size="xs"
+                        outlined
+                    >
+                        Preview
+                    </x-filament::button>
+
+                    {{-- Rollback info --}}
+                    @if($this->canRollback())
+                        <span class="text-xs text-gray-400 dark:text-gray-500">
+                            Rollback: {{ $this->getRollbackSlug() }}
+                        </span>
+                    @endif
+                </div>
+            </div>
+        </x-filament::section>
+    @endif
+
     {{-- Theme Gallery Grid --}}
-    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-        @foreach($this->themes as $theme)
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        @foreach($this->filteredThemes as $theme)
             <x-filament::section
-                :class="$theme['isActive'] ? 'ring-2 ring-primary-500' : ''"
+                :class="$theme['isActive'] ? 'ring-3 ring-primary-500 bg-primary-50/50 dark:bg-primary-900/10' : ''"
                 class="!p-0 overflow-hidden h-full"
             >
                 <div class="flex flex-col h-full">
-                {{-- Screenshot (16:9 ratio - recommended: 1200×675px) --}}
+                {{-- Screenshot (16:9 ratio - recommended: 1200x675px) --}}
                 <div class="relative bg-gray-100 dark:bg-white/5 shrink-0 overflow-hidden">
                     @if($theme['screenshot'])
                         <img
@@ -15,6 +163,33 @@
                             alt="{{ $theme['name'] }} screenshot"
                             class="w-full aspect-video object-cover"
                         >
+                    @elseif(!empty($theme['daisyuiColors']))
+                        {{-- Color palette placeholder --}}
+                        <div class="aspect-video relative overflow-hidden">
+                            @php
+                                $colors = array_values($theme['daisyuiColors']);
+                                $base = $colors[4] ?? $colors[0];
+                                $primary = $colors[0] ?? '#6366f1';
+                                $secondary = $colors[1] ?? '#a855f7';
+                                $accent = $colors[2] ?? '#06b6d4';
+                                $neutral = $colors[3] ?? '#374151';
+                            @endphp
+                            <div class="absolute inset-0" style="background: {{ $base }};"></div>
+                            <div class="absolute inset-0 flex items-end">
+                                {{-- Decorative blocks mimicking a UI layout --}}
+                                <div class="w-full p-3 space-y-2">
+                                    <div class="h-3 w-2/3 rounded-sm opacity-90" style="background: {{ $primary }};"></div>
+                                    <div class="h-2 w-5/6 rounded-sm opacity-50" style="background: {{ $neutral }};"></div>
+                                    <div class="h-2 w-1/2 rounded-sm opacity-50" style="background: {{ $neutral }};"></div>
+                                    <div class="flex gap-2 pt-1">
+                                        <div class="h-5 w-16 rounded-sm opacity-90" style="background: {{ $primary }};"></div>
+                                        <div class="h-5 w-16 rounded-sm opacity-70" style="background: {{ $secondary }};"></div>
+                                        <div class="h-5 w-10 rounded-sm opacity-60" style="background: {{ $accent }};"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <span class="absolute bottom-1.5 right-2 text-[10px] opacity-40" style="color: {{ $neutral }};">{{ ucfirst($theme['daisyuiPreset'] ?? 'theme') }}</span>
+                        </div>
                     @else
                         <div class="aspect-video flex flex-col items-center justify-center text-gray-400 dark:text-gray-500">
                             <svg
@@ -64,40 +239,186 @@
                     @endif
                 </div>
 
+                {{-- DaisyUI Color Strip --}}
+                @if(!empty($theme['daisyuiColors']))
+                    <div class="flex h-1.5">
+                        @foreach($theme['daisyuiColors'] as $colorName => $color)
+                            <div class="grow shrink basis-0" style="background: {{ $color }};"></div>
+                        @endforeach
+                    </div>
+                @endif
+
                 {{-- Theme Info --}}
-                <div class="px-2.5 py-2 space-y-1.5 flex-1 flex flex-col">
+                <div class="px-3 py-2.5 space-y-2 flex-1 flex flex-col">
                     <div>
-                        <h3 class="text-sm font-semibold text-gray-950 dark:text-white truncate leading-tight" title="{{ $theme['name'] }}">
-                            {{ $theme['name'] }}
-                        </h3>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 truncate leading-tight">
-                            v{{ $theme['version'] }} · {{ $theme['author'] }}
+                        <div class="flex items-start justify-between gap-2">
+                            <h3 class="text-sm font-semibold text-gray-950 dark:text-white truncate leading-tight" title="{{ $theme['name'] }}">
+                                {{ $theme['name'] }}
+                            </h3>
+                            <span class="text-xs text-gray-400 dark:text-gray-500 shrink-0">v{{ $theme['version'] }}</span>
+                        </div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 leading-tight">
+                            {{ $theme['author'] }}
                         </p>
                     </div>
 
+                    {{-- Description --}}
+                    @if($theme['description'])
+                        <p class="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 leading-relaxed">
+                            {{ $theme['description'] }}
+                        </p>
+                    @endif
+
+                    {{-- Feature Badges --}}
+                    <div class="flex flex-wrap gap-1">
+                        @if($theme['hasDarkMode'])
+                            <x-filament::badge color="gray" size="sm">Dark Mode</x-filament::badge>
+                        @endif
+                        @if($theme['hasThemeController'])
+                            <x-filament::badge color="gray" size="sm">Theme Controller</x-filament::badge>
+                        @endif
+                        @if($theme['hasResponsive'])
+                            <x-filament::badge color="gray" size="sm">Responsive</x-filament::badge>
+                        @endif
+                        @if($theme['hasAnimations'])
+                            <x-filament::badge color="gray" size="sm">Animations</x-filament::badge>
+                        @endif
+                        @if($theme['daisyuiPreset'])
+                            <x-filament::badge color="info" size="sm">{{ ucfirst($theme['daisyuiPreset']) }}</x-filament::badge>
+                        @endif
+                        @if($theme['requiresLicense'])
+                            @if($theme['licenseStatus']['is_valid'] ?? false)
+                                <x-filament::badge :color="$theme['licenseStatus']['status_color']" size="sm">
+                                    {{ $theme['licenseStatus']['status_label'] }}
+                                </x-filament::badge>
+                            @else
+                                <x-filament::badge color="warning" size="sm">Premium</x-filament::badge>
+                            @endif
+                        @endif
+                    </div>
+
+                    {{-- Tag Badges --}}
+                    @if(!empty($theme['tags']))
+                        <div class="flex flex-wrap gap-1">
+                            @foreach($theme['tags'] as $tag)
+                                <x-filament::badge color="primary" size="sm" class="!bg-primary-50 !text-primary-600 !ring-primary-200 dark:!bg-primary-500/10 dark:!text-primary-400 dark:!ring-primary-500/20">
+                                    {{ ucfirst($tag) }}
+                                </x-filament::badge>
+                            @endforeach
+                        </div>
+                    @endif
+
+                    {{-- Readiness Status --}}
+                    <div class="text-xs">
+                        @if($theme['isActive'])
+                            <span class="inline-flex items-center gap-1 text-primary-600 dark:text-primary-400">
+                                <x-heroicon-s-check-circle class="w-3.5 h-3.5" />
+                                Active theme
+                            </span>
+                        @elseif($theme['requiresLicense'] && !($theme['licenseStatus']['is_valid'] ?? false))
+                            <span class="inline-flex items-center gap-1 text-yellow-600 dark:text-yellow-400">
+                                <x-heroicon-s-key class="w-3.5 h-3.5" />
+                                License required
+                            </span>
+                        @elseif(!$theme['meetsRequirements'])
+                            <span class="inline-flex items-center gap-1 text-red-600 dark:text-red-400">
+                                <x-heroicon-s-exclamation-triangle class="w-3.5 h-3.5" />
+                                Missing requirements
+                            </span>
+                        @elseif(!$theme['isBuilt'] && $theme['isPrebuilt'])
+                            <span class="inline-flex items-center gap-1 text-orange-600 dark:text-orange-400">
+                                <x-heroicon-s-wrench class="w-3.5 h-3.5" />
+                                Needs build
+                            </span>
+                        @else
+                            <span class="inline-flex items-center gap-1 text-green-600 dark:text-green-400">
+                                <x-heroicon-s-check-circle class="w-3.5 h-3.5" />
+                                Ready to activate
+                            </span>
+                        @endif
+                    </div>
+
                     {{-- Actions --}}
-                    <div class="flex items-center gap-1 mt-auto">
+                    <div class="flex flex-wrap items-center gap-1.5 mt-auto pt-1">
                         @unless($theme['isActive'])
                             <x-filament::button
-                                wire:click="activateTheme('{{ $theme['slug'] }}')"
-                                size="xs"
-                                :disabled="!$theme['meetsRequirements']"
-                            >
-                                Activate
-                            </x-filament::button>
-
-                            <x-filament::button
                                 wire:click="previewTheme('{{ $theme['slug'] }}')"
-                                color="gray"
                                 size="xs"
                             >
                                 Preview
+                            </x-filament::button>
+
+                            <x-filament::button
+                                wire:click="activateTheme('{{ $theme['slug'] }}')"
+                                color="gray"
+                                size="xs"
+                                outlined
+                                :disabled="!$theme['meetsRequirements']"
+                            >
+                                Activate
                             </x-filament::button>
                         @else
                             <span class="text-xs text-primary-600 dark:text-primary-400 font-medium">
                                 Active
                             </span>
                         @endunless
+
+                        {{-- License Actions --}}
+                        @if($theme['requiresLicense'])
+                            @if($theme['licenseStatus']['has_license'] ?? false)
+                                @if($theme['licenseStatus']['is_valid'] ?? false)
+                                    <x-filament::button
+                                        wire:click="refreshLicenseStatus('{{ $theme['licenseSlug'] }}')"
+                                        color="gray"
+                                        size="xs"
+                                        outlined
+                                        icon="heroicon-o-arrow-path"
+                                    >
+                                        Refresh
+                                    </x-filament::button>
+                                    <x-filament::button
+                                        wire:click="mountAction('deactivateLicense', { licenseSlug: '{{ $theme['licenseSlug'] }}', name: '{{ addslashes($theme['name']) }}' })"
+                                        color="danger"
+                                        size="xs"
+                                        outlined
+                                        icon="heroicon-o-x-circle"
+                                    >
+                                        Deactivate
+                                    </x-filament::button>
+                                @else
+                                    <x-filament::button
+                                        wire:click="mountAction('activateLicense', { licenseSlug: '{{ $theme['licenseSlug'] }}', name: '{{ addslashes($theme['name']) }}' })"
+                                        color="primary"
+                                        size="xs"
+                                        icon="heroicon-o-key"
+                                    >
+                                        Activate
+                                    </x-filament::button>
+                                @endif
+                            @else
+                                <x-filament::button
+                                    wire:click="mountAction('activateLicense', { licenseSlug: '{{ $theme['licenseSlug'] }}', name: '{{ addslashes($theme['name']) }}' })"
+                                    color="primary"
+                                    size="xs"
+                                    icon="heroicon-o-key"
+                                >
+                                    Activate
+                                </x-filament::button>
+                                @if($theme['purchaseUrl'] ?? ($theme['licenseStatus']['purchase_url'] ?? null))
+                                    <x-filament::button
+                                        tag="a"
+                                        href="{{ $theme['purchaseUrl'] ?? $theme['licenseStatus']['purchase_url'] }}"
+                                        target="_blank"
+                                        color="gray"
+                                        size="xs"
+                                        outlined
+                                        icon="heroicon-o-shopping-cart"
+                                    >
+                                        Purchase
+                                    </x-filament::button>
+                                @endif
+                            @endif
+                        @endif
 
                         <x-filament::button
                             wire:click="showThemeDetails('{{ $theme['slug'] }}')"
@@ -116,13 +437,50 @@
     </div>
 
     {{-- Empty State --}}
-    @if($this->themes->isEmpty())
+    @if($this->filteredThemes->isEmpty())
         <div class="flex flex-col items-center justify-center p-12 text-center">
             <div class="rounded-full bg-gray-100 dark:bg-white/5 p-3 mb-4">
                 <x-heroicon-o-paint-brush class="w-6 h-6 text-gray-400 dark:text-gray-500" />
             </div>
-            <h3 class="text-base font-semibold text-gray-950 dark:text-white">No themes found</h3>
-            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Add themes to the themes/ directory.</p>
+            @if($this->themes->isEmpty())
+                <h3 class="text-base font-semibold text-gray-950 dark:text-white">No themes found</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    Add themes to the themes/ directory or generate one with <code class="text-xs bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">php artisan make:theme</code>
+                </p>
+            @else
+                <h3 class="text-base font-semibold text-gray-950 dark:text-white">No themes match your search</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Try adjusting your search or filters.</p>
+                <div class="flex gap-2 mt-3">
+                    @if($search)
+                        <x-filament::button
+                            wire:click="$set('search', '')"
+                            color="gray"
+                            size="sm"
+                        >
+                            Clear Search
+                        </x-filament::button>
+                    @endif
+                    @if($filterDarkMode || $filterThemeController || $filterResponsive || $filterAnimations)
+                        <x-filament::button
+                            wire:click="$set('filterDarkMode', false); $set('filterThemeController', false); $set('filterResponsive', false); $set('filterAnimations', false)"
+                            color="gray"
+                            size="sm"
+                        >
+                            Clear Filters
+                        </x-filament::button>
+                    @endif
+                    @if($search || $filterDarkMode || $filterThemeController || $filterResponsive || $filterAnimations || $sort !== 'active')
+                        <x-filament::button
+                            wire:click="$set('search', ''); $set('filterDarkMode', false); $set('filterThemeController', false); $set('filterResponsive', false); $set('filterAnimations', false); $set('sort', 'active')"
+                            color="primary"
+                            size="sm"
+                            outlined
+                        >
+                            Reset All
+                        </x-filament::button>
+                    @endif
+                </div>
+            @endif
         </div>
     @endif
 
@@ -149,14 +507,108 @@
             <div class="space-y-4 text-sm">
                 {{-- Screenshot --}}
                 @if($themeDetails['screenshot'])
-                    <div class="aspect-video bg-gray-100 dark:bg-white/5 rounded-lg overflow-hidden shadow-sm">
-                        <img
-                            src="{{ $themeDetails['screenshot'] }}"
-                            alt="{{ $themeDetails['name'] }}"
-                            class="w-full h-full object-cover"
-                        >
+                    <div
+                        x-data="{
+                            gallery: @js($themeDetails['gallery'] ?? []),
+                            mainImage: @js($themeDetails['screenshot']),
+                            originalImage: @js($themeDetails['screenshot']),
+                        }"
+                    >
+                        <div class="aspect-video bg-gray-100 dark:bg-white/5 rounded-lg overflow-hidden shadow-sm">
+                            <img
+                                :src="mainImage"
+                                alt="{{ $themeDetails['name'] }}"
+                                class="w-full h-full object-cover"
+                            >
+                        </div>
+                        {{-- Gallery Thumbnails --}}
+                        <template x-if="gallery.length > 0">
+                            <div class="flex gap-2 mt-2 overflow-x-auto pb-1">
+                                <button
+                                    @click="mainImage = originalImage"
+                                    class="shrink-0 w-16 h-10 rounded overflow-hidden ring-2 transition-all"
+                                    :class="mainImage === originalImage ? 'ring-primary-500' : 'ring-transparent hover:ring-gray-300 dark:hover:ring-gray-600'"
+                                >
+                                    <img :src="originalImage" alt="Primary" class="w-full h-full object-cover">
+                                </button>
+                                <template x-for="(img, idx) in gallery" :key="idx">
+                                    <button
+                                        @click="mainImage = img"
+                                        class="shrink-0 w-16 h-10 rounded overflow-hidden ring-2 transition-all"
+                                        :class="mainImage === img ? 'ring-primary-500' : 'ring-transparent hover:ring-gray-300 dark:hover:ring-gray-600'"
+                                    >
+                                        <img :src="img" :alt="'Gallery ' + (idx + 1)" class="w-full h-full object-cover">
+                                    </button>
+                                </template>
+                            </div>
+                        </template>
                     </div>
                 @endif
+
+                {{-- At a Glance --}}
+                <div class="bg-gray-50 dark:bg-white/5 rounded-lg p-3">
+                    <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">At a Glance</h4>
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="flex items-center gap-2">
+                            <x-heroicon-o-tag class="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" />
+                            <div>
+                                <div class="text-[10px] text-gray-400 dark:text-gray-500 uppercase">Version</div>
+                                <div class="text-gray-900 dark:text-white font-medium">{{ $themeDetails['version'] }}</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <x-heroicon-o-user class="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" />
+                            <div>
+                                <div class="text-[10px] text-gray-400 dark:text-gray-500 uppercase">Author</div>
+                                <div class="text-gray-900 dark:text-white font-medium truncate">
+                                    @if($themeDetails['authorUrl'])
+                                        <a href="{{ $themeDetails['authorUrl'] }}" target="_blank" class="text-primary-600 dark:text-primary-400 hover:underline">{{ $themeDetails['author'] }}</a>
+                                    @else
+                                        {{ $themeDetails['author'] }}
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <x-heroicon-o-swatch class="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" />
+                            <div>
+                                <div class="text-[10px] text-gray-400 dark:text-gray-500 uppercase">Preset</div>
+                                <div class="text-gray-900 dark:text-white font-medium">{{ ucfirst($themeDetails['daisyui']['preset'] ?? 'N/A') }}</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <x-heroicon-o-moon class="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" />
+                            <div>
+                                <div class="text-[10px] text-gray-400 dark:text-gray-500 uppercase">Dark Mode</div>
+                                <div class="text-gray-900 dark:text-white font-medium">{{ ($themeDetails['hasDarkMode'] ?? false) ? 'Yes' : 'No' }}</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <x-heroicon-o-device-phone-mobile class="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" />
+                            <div>
+                                <div class="text-[10px] text-gray-400 dark:text-gray-500 uppercase">Responsive</div>
+                                <div class="text-gray-900 dark:text-white font-medium">{{ ($themeDetails['hasResponsive'] ?? false) ? 'Yes' : 'No' }}</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <x-heroicon-o-wrench class="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" />
+                            <div>
+                                <div class="text-[10px] text-gray-400 dark:text-gray-500 uppercase">Built</div>
+                                <div class="text-gray-900 dark:text-white font-medium">{{ $themeDetails['isBuilt'] ? 'Yes' : 'No' }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    {{-- Tags --}}
+                    @if(!empty($themeDetails['tags']))
+                        <div class="flex flex-wrap gap-1 mt-3 pt-3 border-t border-gray-200 dark:border-white/10">
+                            @foreach($themeDetails['tags'] as $tag)
+                                <x-filament::badge color="primary" size="sm" class="!bg-primary-50 !text-primary-600 !ring-primary-200 dark:!bg-primary-500/10 dark:!text-primary-400 dark:!ring-primary-500/20">
+                                    {{ ucfirst($tag) }}
+                                </x-filament::badge>
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
 
                 {{-- Description --}}
                 <p class="text-gray-600 dark:text-gray-400">
@@ -164,21 +616,22 @@
                 </p>
 
                 {{-- Quick Actions --}}
-                @unless($themeDetails['isActive'])
-                    <div class="flex gap-2">
-                        <x-filament::button
-                            wire:click="activateTheme('{{ $themeDetails['slug'] }}')"
-                            :disabled="!$themeDetails['meetsRequirements']"
-                            size="sm"
-                        >
-                            Activate Theme
-                        </x-filament::button>
+                <div class="flex flex-wrap gap-2">
+                    @unless($themeDetails['isActive'])
                         <x-filament::button
                             wire:click="previewTheme('{{ $themeDetails['slug'] }}')"
-                            color="gray"
                             size="sm"
                         >
                             Preview
+                        </x-filament::button>
+                        <x-filament::button
+                            wire:click="activateTheme('{{ $themeDetails['slug'] }}')"
+                            color="gray"
+                            size="sm"
+                            outlined
+                            :disabled="!$themeDetails['meetsRequirements']"
+                        >
+                            Activate Theme
                         </x-filament::button>
                         <x-filament::button
                             wire:click="mountAction('delete', { slug: '{{ $themeDetails['slug'] }}', name: '{{ addslashes($themeDetails['name']) }}' })"
@@ -188,8 +641,39 @@
                         >
                             Delete
                         </x-filament::button>
-                    </div>
-                @endunless
+                    @endunless
+                    @if($themeDetails['requiresLicense'] ?? false)
+                        @if(($themeDetails['licenseStatus']['has_license'] ?? false) && ($themeDetails['licenseStatus']['is_valid'] ?? false))
+                            <x-filament::button
+                                wire:click="refreshLicenseStatus('{{ $themeDetails['licenseSlug'] }}')"
+                                color="gray"
+                                size="sm"
+                                outlined
+                                icon="heroicon-o-arrow-path"
+                            >
+                                Refresh License
+                            </x-filament::button>
+                            <x-filament::button
+                                wire:click="mountAction('deactivateLicense', { licenseSlug: '{{ $themeDetails['licenseSlug'] }}', name: '{{ addslashes($themeDetails['name']) }}' })"
+                                color="danger"
+                                size="sm"
+                                outlined
+                                icon="heroicon-o-x-circle"
+                            >
+                                Deactivate
+                            </x-filament::button>
+                        @else
+                            <x-filament::button
+                                wire:click="mountAction('activateLicense', { licenseSlug: '{{ $themeDetails['licenseSlug'] }}', name: '{{ addslashes($themeDetails['name']) }}' })"
+                                color="primary"
+                                size="sm"
+                                icon="heroicon-o-key"
+                            >
+                                Activate License
+                            </x-filament::button>
+                        @endif
+                    @endif
+                </div>
 
                 {{-- Requirements Warning --}}
                 @if(!$themeDetails['meetsRequirements'])
@@ -197,10 +681,54 @@
                         <p class="font-medium text-danger-700 dark:text-danger-300">Requirements Not Met</p>
                         <ul class="text-danger-600 dark:text-danger-400 mt-1 space-y-0.5">
                             @foreach($themeDetails['unmetRequirements'] as $requirement)
-                                <li>• {{ $requirement }}</li>
+                                <li>{{ $requirement }}</li>
                             @endforeach
                         </ul>
                     </div>
+                @endif
+
+                {{-- License Information --}}
+                @if($themeDetails['licenseStatus']['has_license'] ?? false)
+                    <x-filament::section compact>
+                        <x-slot name="heading">
+                            <div class="flex items-center gap-2">
+                                License
+                                <x-filament::badge :color="$themeDetails['licenseStatus']['status_color']" size="sm">
+                                    {{ $themeDetails['licenseStatus']['status_label'] }}
+                                </x-filament::badge>
+                            </div>
+                        </x-slot>
+                        <dl class="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                            <div>
+                                <dt class="text-gray-500 dark:text-gray-400">License Key</dt>
+                                <dd class="font-mono text-gray-900 dark:text-white">{{ $themeDetails['licenseStatus']['license_key'] }}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-gray-500 dark:text-gray-400">Domain</dt>
+                                <dd class="text-gray-900 dark:text-white">{{ $themeDetails['licenseStatus']['domain'] ?? 'N/A' }}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-gray-500 dark:text-gray-400">Activated</dt>
+                                <dd class="text-gray-900 dark:text-white">{{ $themeDetails['licenseStatus']['activated_at'] ?? 'N/A' }}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-gray-500 dark:text-gray-400">Expires</dt>
+                                <dd class="text-gray-900 dark:text-white">{{ $themeDetails['licenseStatus']['expires_at'] ?? 'Never' }}</dd>
+                            </div>
+                        </dl>
+                        <p class="mt-2 text-xs text-gray-400 dark:text-gray-500">
+                            Last validated: {{ $themeDetails['licenseStatus']['last_validated'] ?? 'Never' }}
+                        </p>
+                    </x-filament::section>
+                @elseif($themeDetails['requiresLicense'] ?? false)
+                    <x-filament::section compact class="!bg-warning-50 dark:!bg-warning-950 !border-warning-200 dark:!border-warning-800">
+                        <x-slot name="heading">
+                            <span class="text-warning-700 dark:text-warning-300">License Required</span>
+                        </x-slot>
+                        <p class="text-sm text-warning-600 dark:text-warning-400">
+                            This theme requires a license for updates and premium features.
+                        </p>
+                    </x-filament::section>
                 @endif
 
                 {{-- Color Palette (Tailwind) --}}
@@ -294,7 +822,7 @@
                             <dt class="text-gray-500 dark:text-gray-400">Author</dt>
                             <dd class="text-gray-900 dark:text-white">
                                 @if($themeDetails['authorUrl'])
-                                    <a href="{{ $themeDetails['authorUrl'] }}" target="_blank" class="text-primary-600 hover:underline">
+                                    <a href="{{ $themeDetails['authorUrl'] }}" target="_blank" class="text-primary-600 dark:text-primary-400 hover:underline">
                                         {{ $themeDetails['author'] }}
                                     </a>
                                 @else
@@ -355,7 +883,7 @@
                             target="_blank"
                             class="text-xs text-primary-600 hover:text-primary-700 dark:text-primary-400 whitespace-nowrap"
                         >
-                            Homepage →
+                            Homepage &rarr;
                         </a>
                     @endif
                 </div>
