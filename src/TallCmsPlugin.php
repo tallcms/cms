@@ -30,6 +30,7 @@ use TallCms\Cms\Filament\Resources\TallcmsContactSubmissions\TallcmsContactSubmi
 use TallCms\Cms\Filament\Resources\TallcmsMedia\TallcmsMediaResource;
 use TallCms\Cms\Filament\Resources\TallcmsMenus\TallcmsMenuResource;
 use TallCms\Cms\Filament\Resources\Users\UserResource;
+use TallCms\Cms\Filament\Widgets\ContentHealthWidget;
 use TallCms\Cms\Filament\Widgets\MenuOverviewWidget;
 use TallCms\Cms\Filament\Widgets\PluginUpdatesWidget;
 use TallCms\Cms\Services\LocaleRegistry;
@@ -296,6 +297,10 @@ class TallCmsPlugin implements Plugin
     public function getWidgets(): array
     {
         $widgets = [];
+
+        if ($this->hasPosts) {
+            $widgets[] = ContentHealthWidget::class;
+        }
 
         if ($this->hasMenus) {
             $widgets[] = MenuOverviewWidget::class;
