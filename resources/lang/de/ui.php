@@ -407,6 +407,8 @@ return [
     't_only_super_admins_can_deactivate_theme_licenses' => 'Nur Superadministratoren können Theme-Lizenzen deaktivieren.',
     't_only_super_admins_can_delete_themes' => 'Nur Superadministratoren können Themen löschen.',
     't_only_super_admins_can_refresh_theme_license_status' => 'Nur Superadministratoren können den Theme-Lizenzstatus aktualisieren.',
+    't_only_super_admins_can_update_plugins' => 'Nur Superadministratoren können Plugins aktualisieren.',
+    't_only_super_admins_can_upload_plugins' => 'Nur Superadministratoren können Plugins installieren oder aktualisieren.',
     't_only_super_admins_can_upload_themes' => 'Nur Superadministratoren können Themen hochladen.',
     't_optional_color_for_visual_organization' => 'Optionale Farbe für visuelle Organisation',
     't_optional_description_for_administrative_purposes' => 'Optionale Beschreibung für administrative Zwecke',

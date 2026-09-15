@@ -23,7 +23,7 @@
                                 v{{ $plugin['version'] }} &rarr; v{{ $plugin['updateInfo']['latest_version'] }}
                             </span>
                         </div>
-                        @if($this->uploadsAllowed)
+                        @if($this->uploadsAllowed && (auth()->user()?->hasRole('super_admin') ?? false))
                             <x-filament::button
                                 wire:click="mountAction('applyUpdate', { vendor: '{{ $plugin['vendor'] }}', slug: '{{ $plugin['slug'] }}', name: '{{ addslashes($plugin['name']) }}', latest_version: '{{ $plugin['updateInfo']['latest_version'] }}' })"
                                 color="warning"
@@ -230,7 +230,7 @@
 
                     {{-- Actions --}}
                     <div class="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-                        @if($plugin['hasUpdate'] && $this->uploadsAllowed)
+                        @if($plugin['hasUpdate'] && $this->uploadsAllowed && (auth()->user()?->hasRole('super_admin') ?? false))
                             <x-filament::button
                                 wire:click="mountAction('applyUpdate', { vendor: '{{ $plugin['vendor'] }}', slug: '{{ $plugin['slug'] }}', name: '{{ addslashes($plugin['name']) }}', latest_version: '{{ $plugin['updateInfo']['latest_version'] }}' })"
                                 color="warning"
@@ -454,7 +454,7 @@
 
                 {{-- Quick Actions --}}
                 <div class="flex gap-2 flex-wrap">
-                    @if(($pluginDetails['hasUpdate'] ?? false) && $this->uploadsAllowed)
+                    @if(($pluginDetails['hasUpdate'] ?? false) && $this->uploadsAllowed && (auth()->user()?->hasRole('super_admin') ?? false))
                         <x-filament::button
                             wire:click="mountAction('applyUpdate', { vendor: '{{ $pluginDetails['vendor'] }}', slug: '{{ $pluginDetails['slug'] }}', name: '{{ addslashes($pluginDetails['name']) }}', latest_version: '{{ $pluginDetails['updateInfo']['latest_version'] }}' })"
                             color="warning"

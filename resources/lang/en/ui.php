@@ -407,6 +407,8 @@ return [
     't_only_super_admins_can_deactivate_theme_licenses' => 'Only super admins can deactivate theme licenses.',
     't_only_super_admins_can_delete_themes' => 'Only super admins can delete themes.',
     't_only_super_admins_can_refresh_theme_license_status' => 'Only super admins can refresh theme license status.',
+    't_only_super_admins_can_update_plugins' => 'Only super admins can update plugins.',
+    't_only_super_admins_can_upload_plugins' => 'Only super admins can install or update plugins.',
     't_only_super_admins_can_upload_themes' => 'Only super admins can upload themes.',
     't_optional_color_for_visual_organization' => 'Optional color for visual organization',
     't_optional_description_for_administrative_purposes' => 'Optional description for administrative purposes',

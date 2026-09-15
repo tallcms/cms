@@ -483,6 +483,19 @@ class PluginManager extends Page implements HasForms
      */
     public function oneClickUpdate(string $vendor, string $slug): void
     {
+        // Server-side guard: super_admin only. This method is a public
+        // Livewire component method, callable directly regardless of the
+        // applyUpdate Action's own authorize() gate, so it needs its own check.
+        if (! auth()->user()?->hasRole('super_admin')) {
+            Notification::make()
+                ->title(__('tallcms::ui.t_not_authorized'))
+                ->body(__('tallcms::ui.t_only_super_admins_can_update_plugins'))
+                ->danger()
+                ->send();
+
+            return;
+        }
+
         // Guard: respect uploads config for one-click updates too
         if (! $this->getPluginManager()->uploadsAllowed()) {
             Notification::make()
@@ -832,6 +845,8 @@ class PluginManager extends Page implements HasForms
             ->label(__('tallcms::fields.update'))
             ->icon('heroicon-o-arrow-path')
             ->color('warning')
+            ->visible(fn () => $this->getPluginManager()->uploadsAllowed() && (auth()->user()?->hasRole('super_admin') ?? false))
+            ->authorize(fn () => auth()->user()?->hasRole('super_admin') ?? false)
             ->requiresConfirmation()
             ->modalHeading(__('tallcms::ui.t_update_plugin'))
             ->modalDescription(fn (array $arguments) => "Update '{$arguments['name']}' to v{$arguments['latest_version']}? A backup will be created.")
@@ -1048,12 +1063,15 @@ class PluginManager extends Page implements HasForms
                 ->color('gray')
                 ->action(fn () => $this->refreshPlugins()),
 
-            // Combined Install/Update Plugin action
+            // Combined Install/Update Plugin action — gated to super_admin
+            // (installation-wide concern: uploaded ZIPs contain arbitrary PHP
+            // that gets autoloaded and executed) AND the uploads config flag.
             Action::make('install')
                 ->label(__('tallcms::fields.install_update_plugin'))
                 ->icon('heroicon-o-arrow-up-tray')
                 ->color('primary')
-                ->visible(fn () => $this->getPluginManager()->uploadsAllowed())
+                ->visible(fn () => $this->getPluginManager()->uploadsAllowed() && (auth()->user()?->hasRole('super_admin') ?? false))
+                ->authorize(fn () => auth()->user()?->hasRole('super_admin') ?? false)
                 ->form([
                     FileUpload::make('plugin_zip')
                         ->label(__('tallcms::fields.plugin_package_zip'))
@@ -1065,7 +1083,19 @@ class PluginManager extends Page implements HasForms
                         ->helperText(__('tallcms::ui.t_upload_a_plugin_package_auto_detects_new_install_vs_update')),
                 ])
                 ->action(function (array $data) {
-                    // Server-side guard
+                    // Server-side guards: super_admin only AND uploads enabled.
+                    // Both checks run regardless of UI state in case the action is
+                    // invoked via direct AJAX bypassing visible().
+                    if (! auth()->user()?->hasRole('super_admin')) {
+                        Notification::make()
+                            ->title(__('tallcms::ui.t_not_authorized'))
+                            ->body(__('tallcms::ui.t_only_super_admins_can_upload_plugins'))
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
+
                     if (! $this->getPluginManager()->uploadsAllowed()) {
                         Notification::make()
                             ->title(__('tallcms::ui.t_uploads_disabled'))
