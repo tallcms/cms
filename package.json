@@ -12,10 +12,10 @@
   "devDependencies": {
     "@tailwindcss/cli": "^4.1.0",
     "@tailwindcss/typography": "^0.5.16",
-    "@tiptap/core": "^3.0.0",
-    "@tiptap/pm": "^3.0.0",
+    "@tiptap/core": "^3.30.5",
+    "@tiptap/pm": "^3.30.5",
     "daisyui": "^5.0.0",
-    "esbuild": "^0.24.0",
+    "esbuild": "^0.28.2",
     "sortablejs": "^1.15.7",
     "tailwindcss": "^4.1.0"
   }
