@@ -23,6 +23,7 @@ use TallCms\Cms\Models\SiteSetting;
 use TallCms\Cms\Models\Theme;
 use TallCms\Cms\Services\MarketplaceCatalogService;
 use TallCms\Cms\Services\PluginLicenseService;
+use TallCms\Cms\Services\SiteSettingsService;
 use TallCms\Cms\Services\ThemeManager as ThemeManagerService;
 use TallCms\Cms\Services\ThemeValidator;
 
@@ -98,20 +99,17 @@ class ThemeManager extends Page implements HasForms
 
     public function updatedShowThemeSwitcher(bool $value): void
     {
-        SiteSetting::set('show_theme_switcher', $value, 'boolean', 'branding');
-        SiteSetting::clearCache();
+        $this->writeScopedSetting('show_theme_switcher', $value, 'boolean', 'branding');
     }
 
     public function updatedShowSearch(bool $value): void
     {
-        SiteSetting::set('show_search', $value, 'boolean', 'branding');
-        SiteSetting::clearCache();
+        $this->writeScopedSetting('show_search', $value, 'boolean', 'branding');
     }
 
     public function updatedShowLanguageDropdown(bool $value): void
     {
-        SiteSetting::set('show_language_dropdown', $value, 'boolean', 'branding');
-        SiteSetting::clearCache();
+        $this->writeScopedSetting('show_language_dropdown', $value, 'boolean', 'branding');
     }
 
     /**
@@ -120,6 +118,69 @@ class ThemeManager extends Page implements HasForms
     protected function getThemeManager(): ThemeManagerService
     {
         return app(ThemeManagerService::class);
+    }
+
+    protected function getSiteSettingsService(): SiteSettingsService
+    {
+        return app(SiteSettingsService::class);
+    }
+
+    /**
+     * Persist a Theme Manager setting to the site shown in the page dropdown
+     * (getMultisiteContext), not ambient hostname-scoped SiteSetting::set().
+     *
+     * Livewire updates hit /livewire/update without MarkAdminContext, so a
+     * session-less SiteSetting::set() can follow the admin hostname
+     * (e.g. 127.0.0.1.nip.io) instead of the tenant selected in Theme Manager.
+     *
+     * Null context is two different installs:
+     * - Standalone (no `tallcms.multisite.resolver`): SiteSetting::set()/get()
+     *   so the value lands as a default-site override and frontend get() still
+     *   sees it. Pre-existing overrides must be overwritten, not shadowed by
+     *   a global row that get() never reaches.
+     * - Multisite "All Sites" (resolver bound, no site selected): setGlobal().
+     * Description is forwarded on global/standalone writes so updateOrCreate
+     * does not wipe the existing site_settings.description column.
+     */
+    protected function writeScopedSetting(string $key, mixed $value, string $type, string $group, ?string $description = null): void
+    {
+        $context = $this->getMultisiteContext();
+
+        if ($context) {
+            $this->getSiteSettingsService()->setForSite((int) $context->id, $key, $value, $type);
+        } elseif ($this->multisiteResolverIsBound()) {
+            SiteSetting::setGlobal($key, $value, $type, $group, $description);
+        } else {
+            SiteSetting::set($key, $value, $type, $group, $description);
+        }
+
+        SiteSetting::clearCache();
+    }
+
+    protected function readScopedSetting(string $key, mixed $default = null): mixed
+    {
+        $context = $this->getMultisiteContext();
+
+        if ($context) {
+            return $this->getSiteSettingsService()->getForSite((int) $context->id, $key, $default);
+        }
+
+        if ($this->multisiteResolverIsBound()) {
+            return SiteSetting::getGlobal($key, $default);
+        }
+
+        return SiteSetting::get($key, $default);
+    }
+
+    /**
+     * True when the Multisite plugin registered its current-site resolver.
+     *
+     * Same discriminator SiteSetting::resolveCurrentSiteId() uses: bound means
+     * Multisite is installed (including "All Sites"); unbound means standalone.
+     */
+    protected function multisiteResolverIsBound(): bool
+    {
+        return app()->bound('tallcms.multisite.resolver');
     }
 
     /**
@@ -463,14 +524,10 @@ class ThemeManager extends Page implements HasForms
             $fallback = $activeThemeModel?->getDaisyUIPreset() ?? 'light';
             $presets = $activeThemeModel?->getDaisyUIPresets() ?? [];
 
-            // SiteSetting::get() resolves to the active site's override (or the
-            // default site's override on standalone installs, post-4.0.8), and
-            // falls back to the global value when no override exists. The older
-            // branching on getMultisiteContext() predates the default-site
-            // resolver fallback and silently skipped the override on standalone
-            // installs — save went to the override table, read hit the globals
-            // table, so the preset never persisted.
-            $stored = SiteSetting::get('theme_default_preset');
+            // SiteSetting::get() follows the request host / admin_context, which
+            // on Livewire updates is often the platform domain rather than the
+            // site selected in Theme Manager. Read the dropdown site explicitly.
+            $stored = $this->readScopedSetting('theme_default_preset');
 
             $theme['defaultPreset'] = ($stored && in_array($stored, $presets)) ? $stored : $fallback;
         }
@@ -582,8 +639,7 @@ class ThemeManager extends Page implements HasForms
                 }
             }
 
-            // Clear preset for this site (SiteSetting::set() is site-aware)
-            SiteSetting::set('theme_default_preset', '', 'text', 'theme');
+            $this->writeScopedSetting('theme_default_preset', '', 'text', 'theme', 'Default daisyUI preset for the active theme');
 
             Notification::make()
                 ->title(__('tallcms::ui.t_site_theme_updated'))
@@ -594,7 +650,7 @@ class ThemeManager extends Page implements HasForms
             $this->clearThemeCache();
         } elseif ($this->getThemeManager()->activateWithRollback($slug)) {
             // Global: write to config/theme.php with rollback support
-            SiteSetting::set('theme_default_preset', '', 'text', 'theme');
+            $this->writeScopedSetting('theme_default_preset', '', 'text', 'theme', 'Default daisyUI preset for the active theme');
 
             Notification::make()
                 ->title(__('tallcms::ui.t_theme_activated'))
@@ -721,7 +777,7 @@ class ThemeManager extends Page implements HasForms
             return;
         }
 
-        SiteSetting::set('theme_default_preset', $preset, 'text', 'theme', 'Default daisyUI preset for the active theme');
+        $this->writeScopedSetting('theme_default_preset', $preset, 'text', 'theme', 'Default daisyUI preset for the active theme');
 
         Notification::make()
             ->title(__('tallcms::ui.t_default_preset_updated'))
@@ -791,9 +847,9 @@ class ThemeManager extends Page implements HasForms
         // site-wide SiteSetting values and would be misleading when shown for
         // an inactive theme. The Blade also gates on isActive for the same reason.
         if ($activeSlug === $theme->slug) {
-            $this->showThemeSwitcher = (bool) SiteSetting::get('show_theme_switcher', true);
-            $this->showSearch = (bool) SiteSetting::get('show_search', true);
-            $this->showLanguageDropdown = (bool) SiteSetting::get('show_language_dropdown', true);
+            $this->showThemeSwitcher = (bool) $this->readScopedSetting('show_theme_switcher', true);
+            $this->showSearch = (bool) $this->readScopedSetting('show_search', true);
+            $this->showLanguageDropdown = (bool) $this->readScopedSetting('show_language_dropdown', true);
         }
 
         $this->dispatch('open-modal', id: 'theme-details-modal');
